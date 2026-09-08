@@ -1,0 +1,13 @@
+RG35XX JamVM GitHub Builder v1 — CÁCH DÙNG NHANH
+
+Repository đã được chuẩn bị tự động.
+
+1. Vào tab Actions.
+2. Chọn "Build RG35XX JamVM A-B-C".
+3. Nếu chưa tự chạy, bấm "Run workflow".
+4. Khi hoàn tất, tải 3 Artifacts A / B / C.
+5. Test A trước trên RG35XX bằng file INSTALL-ON-RG35XX.sh đi kèm artifact.
+6. Nếu A vẫn crash, test B; sau đó test C.
+
+KHÔNG cần cài Ubuntu hay toolchain trên máy tính.
+KHÔNG sửa FreeJ2ME core/runtime/game trong lúc test.
