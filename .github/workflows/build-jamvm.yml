@@ -1,4 +1,4 @@
-name: Build RG35XX JamVM K Fix
+name: Build RG35XX JamVM L Production
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ env:
 
 jobs:
   build:
-    name: Build K
+    name: Build L Production
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -38,7 +38,7 @@ jobs:
       - name: Pull Miyoo uClibc toolchain
         run: docker pull "${TOOLCHAIN_IMAGE}"
 
-      - name: Build K fix variant
+      - name: Build L production variant
         shell: bash
         run: |
           set -euxo pipefail
@@ -46,7 +46,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
             "${TOOLCHAIN_IMAGE}" \
-            bash /work/scripts/build-k.sh
+            bash /work/scripts/build-l.sh
 
       - name: Normalize Docker output ownership
         shell: bash
@@ -56,20 +56,20 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          OUT="dist/K"
+          OUT="dist/L"
           test -f "$OUT/jamvm"
           file "$OUT/jamvm" | tee "$OUT/file-host.txt"
           grep -qi "ELF 32-bit.*ARM" "$OUT/file-host.txt"
           sha256sum "$OUT/jamvm" | tee "$OUT/SHA256SUMS-host.txt"
           chmod +x "$OUT/RESTORE-ORIGINAL.sh"
-          (cd "$OUT" && zip -9 -r "../RG35XX-JamVM-K-direct-prepare-aload0-fix.zip" .)
+          (cd "$OUT" && zip -9 -r "../RG35XX-JamVM-L-production-aload0-fix.zip" .)
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RG35XX-JamVM-K-direct-prepare-aload0-fix
+          name: RG35XX-JamVM-L-production-aload0-fix
           path: |
-            dist/K/
-            dist/RG35XX-JamVM-K-direct-prepare-aload0-fix.zip
+            dist/L/
+            dist/RG35XX-JamVM-L-production-aload0-fix.zip
           if-no-files-found: error
           retention-days: 30
