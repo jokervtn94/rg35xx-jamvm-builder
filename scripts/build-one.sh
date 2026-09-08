@@ -38,40 +38,44 @@ if [ "$MODE" = D ]; then
   python3 - "$SRC/src/interp/engine/interp.c" <<'PY'
 from pathlib import Path
 import sys
+
 p = Path(sys.argv[1])
 s = p.read_text()
-old = '''    DEF_OPC_210(OPC_CHECKCAST_QUICK, {
-        Class *class = RESOLVED_CLASS(pc);
-        Object *obj = (Object*)ostack[-1]; 
-               
-        if((obj != NULL) && !isInstanceOf(class, obj->class))
-            THROW_EXCEPTION(java_lang_ClassCastException,
-                            CLASS_CB(obj->class)->name);
-
-        DISPATCH(0, 3);
-    })'''
+start_marker = "    DEF_OPC_210(OPC_CHECKCAST_QUICK, {"
+end_marker = "        DISPATCH(0, 3);\n    })"
+start = s.find(start_marker)
+if start < 0:
+    raise SystemExit('ERROR: CHECKCAST_QUICK start marker not found; refusing blind patch')
+end = s.find(end_marker, start)
+if end < 0:
+    raise SystemExit('ERROR: CHECKCAST_QUICK end marker not found; refusing blind patch')
+end += len(end_marker)
+old = s[start:end]
+if old.count('OPC_CHECKCAST_QUICK') != 1 or 'isInstanceOf' not in old:
+    raise SystemExit('ERROR: unexpected CHECKCAST_QUICK block; refusing blind patch')
 new = '''    DEF_OPC_210(OPC_CHECKCAST_QUICK, {
         Class *class = RESOLVED_CLASS(pc);
         Object *obj = (Object*)ostack[-1];
 
-        /* RG35XX diagnostic guard: the captured crash showed obj == 0x1.
-           Never dereference obviously-invalid low addresses.  Emit enough
-           interpreter context to identify the producing bytecode instead. */
+        /* RG35XX diagnostic guard.  Previous core evidence showed a low,
+           invalid object operand at CHECKCAST_QUICK.  Log interpreter context
+           before any dereference so we can identify the producing bytecode. */
         if((uintptr_t)obj != 0 && (uintptr_t)obj < 4096) {
             long pc_off = (long)((char*)pc - (char*)mb->code);
-            long depth = (long)(ostack - frame->ostack);
             fprintf(stderr,
-                    "RG35XX-JAMVM-D: BAD_CHECKCAST obj=0x%08lx target=%s owner=%s method=%s type=%s pc=%p pc_off=%ld depth=%ld\\n",
+                    "RG35XX-JAMVM-D: BAD_CHECKCAST obj=0x%08lx target=%s owner=%s method=%s type=%s pc_off=%ld\\n",
                     (unsigned long)(uintptr_t)obj,
                     class ? CLASS_CB(class)->name : "<null>",
                     (mb && mb->class) ? CLASS_CB(mb->class)->name : "<null>",
                     (mb && mb->name) ? mb->name : "<null>",
                     (mb && mb->type) ? mb->type : "<null>",
-                    (void*)pc, pc_off, depth);
-            if(depth >= 1) fprintf(stderr, "RG35XX-JAMVM-D: stack[-1]=0x%08lx\\n", (unsigned long)ostack[-1]);
-            if(depth >= 2) fprintf(stderr, "RG35XX-JAMVM-D: stack[-2]=0x%08lx\\n", (unsigned long)ostack[-2]);
-            if(depth >= 3) fprintf(stderr, "RG35XX-JAMVM-D: stack[-3]=0x%08lx\\n", (unsigned long)ostack[-3]);
-            if(depth >= 4) fprintf(stderr, "RG35XX-JAMVM-D: stack[-4]=0x%08lx\\n", (unsigned long)ostack[-4]);
+                    pc_off);
+            fprintf(stderr,
+                    "RG35XX-JAMVM-D: stack[-1]=0x%08lx stack[-2]=0x%08lx stack[-3]=0x%08lx stack[-4]=0x%08lx\\n",
+                    (unsigned long)ostack[-1],
+                    (unsigned long)ostack[-2],
+                    (unsigned long)ostack[-3],
+                    (unsigned long)ostack[-4]);
             fflush(stderr);
             exit(86);
         }
@@ -82,9 +86,8 @@ new = '''    DEF_OPC_210(OPC_CHECKCAST_QUICK, {
 
         DISPATCH(0, 3);
     })'''
-if old not in s:
-    raise SystemExit('ERROR: CHECKCAST_QUICK source block not found; refusing blind patch')
-p.write_text(s.replace(old, new, 1))
+s = s[:start] + new + s[end:]
+p.write_text(s)
 print('Applied RG35XX CHECKCAST diagnostic patch')
 PY
 fi
