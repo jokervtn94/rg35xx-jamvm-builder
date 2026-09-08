@@ -67,6 +67,12 @@ jobs:
             "${TOOLCHAIN_IMAGE}" \
             bash /work/scripts/build-one.sh "${{ matrix.mode }}"
 
+      - name: Normalize Docker output ownership
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo chown -R "$(id -u):$(id -g)" dist work || true
+
       - name: Host-side artifact checks
         shell: bash
         run: |
