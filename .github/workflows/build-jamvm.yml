@@ -1,0 +1,84 @@
+name: Build RG35XX JamVM A-B-C
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  JAMVM_VERSION: "2.0.0"
+  JAMVM_SHA256: "76428e96df0ae9dd964c7a7c74c1e9a837e2f312c39e9a357fa8178f7eff80da"
+  TOOLCHAIN_IMAGE: "miyoocfw/toolchain-shared-uclibc:latest"
+
+jobs:
+  build:
+    name: Build ${{ matrix.mode }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: A
+            artifact: RG35XX-JamVM-A-no-cache
+          - mode: B
+            artifact: RG35XX-JamVM-B-no-cache-no-inline
+          - mode: C
+            artifact: RG35XX-JamVM-C-no-inline
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download and verify JamVM 2.0.0 source
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p source
+          URL="https://downloads.sourceforge.net/project/jamvm/jamvm/JamVM%202.0.0/jamvm-2.0.0.tar.gz"
+          curl -L --fail --retry 5 --retry-delay 3 \
+            -o source/jamvm-2.0.0.tar.gz "$URL"
+          echo "${JAMVM_SHA256}  source/jamvm-2.0.0.tar.gz" | sha256sum -c -
+
+      - name: Pull Miyoo uClibc toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker pull "${TOOLCHAIN_IMAGE}"
+
+      - name: Build selected interpreter variant
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm \
+            -e MODE="${{ matrix.mode }}" \
+            -e JAMVM_VERSION="${JAMVM_VERSION}" \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            "${TOOLCHAIN_IMAGE}" \
+            bash /work/scripts/build-one.sh "${{ matrix.mode }}"
+
+      - name: Host-side artifact checks
+        shell: bash
+        run: |
+          set -euxo pipefail
+          OUT="dist/${{ matrix.mode }}"
+          test -f "$OUT/jamvm"
+          file "$OUT/jamvm" | tee "$OUT/file-host.txt"
+          grep -qi "ELF 32-bit.*ARM" "$OUT/file-host.txt"
+          sha256sum "$OUT/jamvm" | tee "$OUT/SHA256SUMS-host.txt"
+          chmod +x "$OUT/INSTALL-ON-RG35XX.sh" "$OUT/RESTORE-ORIGINAL.sh"
+          (
+            cd "$OUT"
+            zip -9 -r "../${{ matrix.artifact }}.zip" .
+          )
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/${{ matrix.mode }}/
+            dist/${{ matrix.artifact }}.zip
+          if-no-files-found: error
+          retention-days: 30
