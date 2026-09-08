@@ -1,0 +1,79 @@
+name: Build RG35XX JamVM E Bytecode Trace
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/build-jamvm-e.yml'
+      - 'scripts/build-e.sh'
+      - 'rg35xx/**'
+
+permissions:
+  contents: read
+
+env:
+  JAMVM_VERSION: "2.0.0"
+  JAMVM_SHA256: "76428e96df0ae9dd964c7a7c74c1e9a837e2f312c39e9a357fa8178f7eff80da"
+  TOOLCHAIN_IMAGE: "miyoocfw/toolchain-shared-uclibc:latest"
+
+jobs:
+  build:
+    name: Build E
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download and verify JamVM 2.0.0 source
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p source
+          URL="https://downloads.sourceforge.net/project/jamvm/jamvm/JamVM%202.0.0/jamvm-2.0.0.tar.gz"
+          curl -L --fail --retry 5 --retry-delay 3 -o source/jamvm-2.0.0.tar.gz "$URL"
+          echo "${JAMVM_SHA256}  source/jamvm-2.0.0.tar.gz" | sha256sum -c -
+
+      - name: Pull Miyoo uClibc toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker pull "${TOOLCHAIN_IMAGE}"
+
+      - name: Build E bytecode trace
+        shell: bash
+        run: |
+          set -euxo pipefail
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            "${TOOLCHAIN_IMAGE}" \
+            bash /work/scripts/build-e.sh
+
+      - name: Normalize Docker output ownership
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo chown -R "$(id -u):$(id -g)" dist work || true
+
+      - name: Host-side checks
+        shell: bash
+        run: |
+          set -euxo pipefail
+          OUT="dist/E"
+          test -f "$OUT/jamvm"
+          file "$OUT/jamvm" | tee "$OUT/file-host.txt"
+          grep -qi "ELF 32-bit.*ARM" "$OUT/file-host.txt"
+          sha256sum "$OUT/jamvm" | tee "$OUT/SHA256SUMS-host.txt"
+          (cd "$OUT" && zip -9 -r "../RG35XX-JamVM-E-bytecode-trace.zip" .)
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RG35XX-JamVM-E-bytecode-trace
+          path: |
+            dist/E/
+            dist/RG35XX-JamVM-E-bytecode-trace.zip
+          if-no-files-found: error
+          retention-days: 30
