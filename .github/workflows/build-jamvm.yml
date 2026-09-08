@@ -1,4 +1,4 @@
-name: Build RG35XX JamVM H Diagnostic
+name: Build RG35XX JamVM I Diagnostic
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ env:
 
 jobs:
   build:
-    name: Build H
+    name: Build I
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -38,7 +38,7 @@ jobs:
       - name: Pull Miyoo uClibc toolchain
         run: docker pull "${TOOLCHAIN_IMAGE}"
 
-      - name: Build H diagnostic variant
+      - name: Build I diagnostic variant
         shell: bash
         run: |
           set -euxo pipefail
@@ -46,7 +46,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
             "${TOOLCHAIN_IMAGE}" \
-            bash /work/scripts/build-h.sh
+            bash /work/scripts/build-i.sh
 
       - name: Normalize Docker output ownership
         shell: bash
@@ -56,20 +56,20 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          OUT="dist/H"
+          OUT="dist/I"
           test -f "$OUT/jamvm"
           file "$OUT/jamvm" | tee "$OUT/file-host.txt"
           grep -qi "ELF 32-bit.*ARM" "$OUT/file-host.txt"
           sha256sum "$OUT/jamvm" | tee "$OUT/SHA256SUMS-host.txt"
           chmod +x "$OUT/RESTORE-ORIGINAL.sh"
-          (cd "$OUT" && zip -9 -r "../RG35XX-JamVM-H-node-memory-trace.zip" .)
+          (cd "$OUT" && zip -9 -r "../RG35XX-JamVM-I-getfield-offset-trace.zip" .)
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RG35XX-JamVM-H-node-memory-trace
+          name: RG35XX-JamVM-I-getfield-offset-trace
           path: |
-            dist/H/
-            dist/RG35XX-JamVM-H-node-memory-trace.zip
+            dist/I/
+            dist/RG35XX-JamVM-I-getfield-offset-trace.zip
           if-no-files-found: error
           retention-days: 30
