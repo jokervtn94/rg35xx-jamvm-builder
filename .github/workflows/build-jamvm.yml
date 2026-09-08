@@ -1,4 +1,4 @@
-name: Build RG35XX JamVM D Diagnostic
+name: Build RG35XX JamVM E Diagnostic
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ env:
 
 jobs:
   build:
-    name: Build D
+    name: Build E
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -36,47 +36,40 @@ jobs:
           echo "${JAMVM_SHA256}  source/jamvm-2.0.0.tar.gz" | sha256sum -c -
 
       - name: Pull Miyoo uClibc toolchain
-        shell: bash
-        run: |
-          set -euxo pipefail
-          docker pull "${TOOLCHAIN_IMAGE}"
+        run: docker pull "${TOOLCHAIN_IMAGE}"
 
-      - name: Build D diagnostic variant
+      - name: Build E diagnostic variant
         shell: bash
         run: |
           set -euxo pipefail
           docker run --rm \
-            -e MODE=D \
-            -e JAMVM_VERSION="${JAMVM_VERSION}" \
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
             "${TOOLCHAIN_IMAGE}" \
-            bash /work/scripts/build-one.sh D
+            bash /work/scripts/build-e.sh
 
       - name: Normalize Docker output ownership
         shell: bash
-        run: |
-          set -euxo pipefail
-          sudo chown -R "$(id -u):$(id -g)" dist work || true
+        run: sudo chown -R "$(id -u):$(id -g)" dist work || true
 
       - name: Host-side artifact checks
         shell: bash
         run: |
           set -euxo pipefail
-          OUT="dist/D"
+          OUT="dist/E"
           test -f "$OUT/jamvm"
           file "$OUT/jamvm" | tee "$OUT/file-host.txt"
           grep -qi "ELF 32-bit.*ARM" "$OUT/file-host.txt"
           sha256sum "$OUT/jamvm" | tee "$OUT/SHA256SUMS-host.txt"
-          chmod +x "$OUT/INSTALL-ON-RG35XX.sh" "$OUT/RESTORE-ORIGINAL.sh"
-          (cd "$OUT" && zip -9 -r "../RG35XX-JamVM-D-checkcast-diagnostic.zip" .)
+          chmod +x "$OUT/RESTORE-ORIGINAL.sh"
+          (cd "$OUT" && zip -9 -r "../RG35XX-JamVM-E-bytecode-trace.zip" .)
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RG35XX-JamVM-D-checkcast-diagnostic
+          name: RG35XX-JamVM-E-bytecode-trace
           path: |
-            dist/D/
-            dist/RG35XX-JamVM-D-checkcast-diagnostic.zip
+            dist/E/
+            dist/RG35XX-JamVM-E-bytecode-trace.zip
           if-no-files-found: error
           retention-days: 30
