@@ -1,4 +1,4 @@
-name: Build RG35XX JamVM F Diagnostic
+name: Build RG35XX JamVM G Diagnostic
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ env:
 
 jobs:
   build:
-    name: Build F
+    name: Build G
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
@@ -38,7 +38,7 @@ jobs:
       - name: Pull Miyoo uClibc toolchain
         run: docker pull "${TOOLCHAIN_IMAGE}"
 
-      - name: Build F diagnostic variant
+      - name: Build G diagnostic variant
         shell: bash
         run: |
           set -euxo pipefail
@@ -46,7 +46,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}:/work" \
             -w /work \
             "${TOOLCHAIN_IMAGE}" \
-            bash /work/scripts/build-f.sh
+            bash /work/scripts/build-g.sh
 
       - name: Normalize Docker output ownership
         shell: bash
@@ -56,20 +56,20 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          OUT="dist/F"
+          OUT="dist/G"
           test -f "$OUT/jamvm"
           file "$OUT/jamvm" | tee "$OUT/file-host.txt"
           grep -qi "ELF 32-bit.*ARM" "$OUT/file-host.txt"
           sha256sum "$OUT/jamvm" | tee "$OUT/SHA256SUMS-host.txt"
           chmod +x "$OUT/RESTORE-ORIGINAL.sh"
-          (cd "$OUT" && zip -9 -r "../RG35XX-JamVM-F-return-path-trace.zip" .)
+          (cd "$OUT" && zip -9 -r "../RG35XX-JamVM-G-object-flow-trace.zip" .)
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RG35XX-JamVM-F-return-path-trace
+          name: RG35XX-JamVM-G-object-flow-trace
           path: |
-            dist/F/
-            dist/RG35XX-JamVM-F-return-path-trace.zip
+            dist/G/
+            dist/RG35XX-JamVM-G-object-flow-trace.zip
           if-no-files-found: error
           retention-days: 30
