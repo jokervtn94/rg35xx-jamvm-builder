@@ -33,7 +33,31 @@ new=r'''#define RG35XX_G_TRACE_RETURN(value, level)                             
                 (level), (unsigned long)(uintptr_t)(value));                    \
         fflush(stderr);                                                          \
     }                                                                            \
-}\n\n#define RETURN_0 { uintptr_t rg=*--ostack; RG35XX_G_TRACE_RETURN(rg,0); *lvars++=rg; goto methodReturn; }\n#define RETURN_1 { uintptr_t rg=cache.i.v1; RG35XX_G_TRACE_RETURN(rg,1); *lvars++=rg; goto methodReturn; }\n#define RETURN_2 { uintptr_t rg=cache.i.v2; RG35XX_G_TRACE_RETURN(rg,2); *lvars++=rg; goto methodReturn; }'''
+}
+
+#define RETURN_0                                           \
+{                                                          \
+    uintptr_t rg = *--ostack;                              \
+    RG35XX_G_TRACE_RETURN(rg, 0);                          \
+    *lvars++ = rg;                                         \
+    goto methodReturn;                                     \
+}
+
+#define RETURN_1                                           \
+{                                                          \
+    uintptr_t rg = cache.i.v1;                             \
+    RG35XX_G_TRACE_RETURN(rg, 1);                          \
+    *lvars++ = rg;                                         \
+    goto methodReturn;                                     \
+}
+
+#define RETURN_2                                           \
+{                                                          \
+    uintptr_t rg = cache.i.v2;                             \
+    RG35XX_G_TRACE_RETURN(rg, 2);                          \
+    *lvars++ = rg;                                         \
+    goto methodReturn;                                     \
+}'''
 s=s.replace(old,new,1)
 start_marker="    DEF_OPC_210(OPC_CHECKCAST_QUICK, {"; end_marker="        DISPATCH(0, 3);\n    })"
 start=s.find(start_marker); end=s.find(end_marker,start)
